@@ -140,5 +140,102 @@
   "notFound": {
     "title": "Página não encontrada",
     "back": "Voltar ao terminal"
+  },
+  "vaults": {
+    "pageTitle": "Cofres de emissão de opções",
+    "pageDescription": "Ganhe rendimento passivo fornecendo liquidez a estratégias automatizadas de emissão de opções. Os prêmios são coletados a cada época e reinvestidos no preço das suas cotas.",
+    "mockBadge": "dados de teste — contratos ainda não implantados",
+    "viewVault": "Ver cofre →",
+    "vaultFull": "Cofre cheio",
+    "riskDisclosure": "Divulgação de riscos: os cofres de emissão de opções carregam o risco de atribuição ao preço de exercício (para cofres de put) ou de limitar os ganhos (para cofres de call). O APY passado não garante resultados futuros. Os contratos inteligentes de cofre não foram auditados. Não deposite mais do que pode perder.",
+    "loading": "Carregando cofres…",
+    "notFound": "Cofre não encontrado.",
+    "backToVaults": "Cofres",
+    "connectWallet": "Conecte sua carteira para depositar ou sacar.",
+    "riskDisclosureShort": "Os contratos de cofre não foram auditados. Os depósitos podem estar expostos a riscos de contrato inteligente e de atribuição. Resultados passados não garantem resultados futuros.",
+    "apyMethodologyLabel": "Metodologia de APY",
+    "apyMethodologyClose": "Fechar",
+    "stats": {
+      "trailingApy": "APY histórico",
+      "tvl": "TVL",
+      "capacity": "Capacidade",
+      "currentStrike": "Strike atual",
+      "expiry": "Vencimento",
+      "underlying": "Ativo subjacente",
+      "sharePrice": "Preço por cota",
+      "epoch": "Época",
+      "mgmtFee": "Taxa de gestão",
+      "perfFee": "Taxa de desempenho",
+      "noMgmtFee": "Nenhuma"
+    },
+    "phase": {
+      "deposit": "Janela de depósito",
+      "active": "Época ativa",
+      "settlement": "Liquidação",
+      "depositNote": "Depósitos abertos · Saques processados no início da época",
+      "activeNote": "Época em andamento · Saques na fila até a liquidação",
+      "settlementNote": "Liquidando posição · Calculando P&L final"
+    },
+    "history": {
+      "title": "Épocas históricas",
+      "epochCol": "Época",
+      "activeCol": "Ativo",
+      "settlementCol": "Liquidação",
+      "strikeCol": "Strike",
+      "premiumCol": "Prêmio/cota",
+      "outcomeCol": "Resultado",
+      "returnCol": "Retorno",
+      "expired": "Expirada",
+      "exercised": "Exercida"
+    },
+    "howItWorks": "Como este cofre funciona",
+    "epochTimeline": "Linha do tempo da época",
+    "yourPosition": "Sua posição",
+    "positionShares": "Cotas",
+    "positionTotalValue": "Valor total",
+    "positionAccruedPremium": "Prêmio acumulado",
+    "positionQueuedWithdrawal": "Saque na fila",
+    "positionQueuedUnit": "{shares} cotas",
+    "feeDisclosure": "Divulgação de taxas",
+    "feeManagement": "Gestão: {pct}% ao ano sobre TVL",
+    "feeNoManagement": "Sem taxa de gestão",
+    "feePerformance": "Desempenho: {pct}% sobre retornos positivos líquidos por época",
+    "deposit": {
+      "tab": "Depositar",
+      "description": "Deposite USDC no cofre. As cotas são emitidas ao NAV atual de {price}/cota.",
+      "amountLabel": "Valor (USDC)",
+      "sharesEstimate": "≈ {shares} cotas",
+      "queuedNotice": "Depósitos durante épocas ativas ficam na fila para o início da próxima época.",
+      "button": "Depositar",
+      "buttonPending": "Confirmando…"
+    },
+    "withdraw": {
+      "tab": "Sacar",
+      "description": "Os pedidos de saque ficam na fila e são processados ao final da época atual. As cotas são resgatadas ao NAV final após as taxas.",
+      "sharesLabel": "Cotas a sacar",
+      "usdcEstimate": "≈ {usdc} USDC ao NAV atual",
+      "note": "Os saques na fila são processados na liquidação da época. Você receberá USDC ao preço final por cota após as taxas.",
+      "button": "Colocar saque na fila",
+      "buttonPending": "Colocando na fila…"
+    },
+    "degraded": {
+      "snapshotBanner": "Exibindo dados em cache de {age} atrás — API ao vivo indisponível.",
+      "partialBanner": "Dados parciais recebidos — preço por cota não pôde ser confirmado.",
+      "actionsDisabled": "Depósitos e saques estão desabilitados até confirmar dados ao vivo.",
+      "snapshotLabel": "Em cache",
+      "partialLabel": "Dados parciais"
+    },
+    "errors": {
+      "fetchFailed": "Falha ao carregar cofres",
+      "depositFailed": "Depósito falhou",
+      "withdrawFailed": "Saque falhou",
+      "navUnconfirmed": "Não é possível depositar ou sacar: o NAV atual não pôde ser confirmado. Exibindo dados em cache.",
+      "dismissError": "Dispensar"
+    },
+    "tx": {
+      "depositSuccess": "Depósito confirmado. TX: {txId}",
+      "withdrawSuccess": "Saque na fila para o final da época. TX: {txId}",
+      "withdrawImmediate": "Saque confirmado. TX: {txId}"
+    }
   }
 }

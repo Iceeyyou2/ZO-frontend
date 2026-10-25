@@ -10,4 +10,8 @@ export const queryKeys = {
   history: (token: string | null) => ["history", token] as const,
   chain: (sym: string, expiryDays: number) => ["chain", sym, expiryDays] as const,
   expiries: (sym: string) => ["expiries", sym] as const,
+  // Vault keys are token-agnostic for the public listing; detail embeds
+  // the token so a wallet-switch never shows the previous user's position.
+  vaults: () => ["vaults"] as const,
+  vault: (id: string, token: string | null) => ["vault", id, token] as const,
 };

@@ -18,6 +18,8 @@
  *   POST /api/v1/vaults/{id}/withdraw  { shares: number }  → { tx_id: string; queued: boolean }
  */
 
+import { saveSnapshot, loadSnapshot, type MarketSnapshot } from "../offlineSnapshot";
+
 export type VaultStrategy = "covered_call" | "cash_secured_put" | "iron_condor" | "wheel";
 export type RiskRating = "low" | "medium" | "high";
 export type EpochPhase = "deposit" | "active" | "settlement";
@@ -237,4 +239,125 @@ export async function withdrawFromVault(
   }
   await new Promise(r => setTimeout(r, 600));
   return { tx_id: `mock-tx-withdraw-${id}-${shares.toFixed(0)}-${Date.now()}`, queued: true };
+}
+
+// ---------------------------------------------------------------------------
+// Degraded-mode fetch wrappers with IndexedDB snapshot fallback
+// ---------------------------------------------------------------------------
+// These wrappers persist every successful fetch into IndexedDB so that when
+// the vault API is unreachable the UI can show the last-known data with a
+// staleness marker instead of a blank page or thrown error.
+//
+// The returned `VaultFetchResult<T>` carries a `source` field so the UI can
+// clearly distinguish live vs. cached data and disable value-moving actions
+// (deposit / withdraw) when the NAV cannot be confirmed.
+
+export type VaultDataSource = "live" | "snapshot" | "partial";
+
+/**
+ * Descriptor returned by every snapshot-aware vault fetch.
+ * - `live`     — fresh data straight from the API; actions are enabled.
+ * - `snapshot` — API failed; last-known cached data; actions disabled.
+ * - `partial`  — API returned a response but one or more fields were missing;
+ *                actions disabled, data shown with a warning.
+ */
+export interface VaultFetchResult<T> {
+  data: T;
+  source: VaultDataSource;
+  /** ISO timestamp of when the data was originally fetched (live or cached). */
+  fetchedAt: string;
+  /** Human-readable staleness note; non-null when source !== "live". */
+  stalenessNote: string | null;
+}
+
+const SNAPSHOT_KEY_LIST = "vault:list";
+const snapshotKeyDetail = (id: string) => `vault:detail:${id}`;
+
+function formatStalenessNote(savedAt: number): string {
+  const ageMs = Date.now() - savedAt;
+  if (ageMs < 60_000) return "less than a minute ago";
+  if (ageMs < 3_600_000) return `${Math.floor(ageMs / 60_000)} min ago`;
+  const h = Math.floor(ageMs / 3_600_000);
+  return `${h} hr${h !== 1 ? "s" : ""} ago`;
+}
+
+/**
+ * Fetch the vault listing with snapshot fallback.
+ * On success the result is persisted so a subsequent degraded-mode render
+ * can serve cached data.
+ */
+export async function fetchVaultsWithFallback(): Promise<VaultFetchResult<VaultSummary[]>> {
+  try {
+    const data = await fetchVaults();
+    await saveSnapshot(SNAPSHOT_KEY_LIST, data);
+    return {
+      data,
+      source: "live",
+      fetchedAt: new Date().toISOString(),
+      stalenessNote: null,
+    };
+  } catch (err) {
+    // API unreachable — try the IndexedDB snapshot
+    const snap: MarketSnapshot<VaultSummary[]> | undefined = await loadSnapshot<VaultSummary[]>(SNAPSHOT_KEY_LIST);
+    if (snap?.data?.length) {
+      return {
+        data: snap.data,
+        source: "snapshot",
+        fetchedAt: new Date(snap.savedAt).toISOString(),
+        stalenessNote: formatStalenessNote(snap.savedAt),
+      };
+    }
+    // No snapshot — rethrow so the page can render a proper error state
+    throw err;
+  }
+}
+
+/**
+ * Fetch a single vault's detail with snapshot fallback.
+ * Partial data detection: if the live response is missing `sharePrice` or
+ * `currentEpoch` (the two fields needed to price a deposit/withdrawal), the
+ * result is marked `partial` and actions are disabled.
+ */
+export async function fetchVaultDetailWithFallback(
+  id: string,
+  token?: string | null
+): Promise<VaultFetchResult<VaultDetail>> {
+  const key = snapshotKeyDetail(id);
+  try {
+    const detail = await fetchVaultDetail(id, token);
+    if (!detail) {
+      throw new Error(`Vault "${id}" not found.`);
+    }
+
+    // Partial-data detection: both fields must be present and numeric
+    const isPartial =
+      typeof detail.sharePrice !== "number" ||
+      isNaN(detail.sharePrice) ||
+      typeof detail.currentEpoch !== "number";
+
+    const result: VaultFetchResult<VaultDetail> = {
+      data: detail,
+      source: isPartial ? "partial" : "live",
+      fetchedAt: new Date().toISOString(),
+      stalenessNote: isPartial
+        ? "Share price or epoch data is missing — actions disabled until data is confirmed."
+        : null,
+    };
+
+    // Only persist complete data to the snapshot store
+    if (!isPartial) await saveSnapshot(key, detail);
+    return result;
+  } catch (err) {
+    // API unreachable — serve the last-known snapshot
+    const snap: MarketSnapshot<VaultDetail> | undefined = await loadSnapshot<VaultDetail>(key);
+    if (snap?.data) {
+      return {
+        data: snap.data,
+        source: "snapshot",
+        fetchedAt: new Date(snap.savedAt).toISOString(),
+        stalenessNote: formatStalenessNote(snap.savedAt),
+      };
+    }
+    throw err;
+  }
 }

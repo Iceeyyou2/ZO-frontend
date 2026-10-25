@@ -2,15 +2,24 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { AppHeader } from "../../../components/AppHeader";
 import { WalletConnect } from "../../../components/WalletConnect";
-import { fetchVaults, type VaultSummary, type VaultStrategy, type RiskRating } from "../../../lib/api/vaults";
+import { ApiHealthBanner } from "../../../components/ApiHealthBanner";
+import { VaultStalenessBar } from "../../../components/vaults/VaultStalenessBar";
+import {
+  fetchVaultsWithFallback,
+  type VaultSummary,
+  type VaultStrategy,
+  type RiskRating,
+  type VaultFetchResult,
+} from "../../../lib/api/vaults";
 
 const STRATEGY_LABELS: Record<VaultStrategy, string> = {
-  covered_call:      "Covered Call",
-  cash_secured_put:  "Cash-Secured Put",
-  iron_condor:       "Iron Condor",
-  wheel:             "Wheel",
+  covered_call:     "Covered Call",
+  cash_secured_put: "Cash-Secured Put",
+  iron_condor:      "Iron Condor",
+  wheel:            "Wheel",
 };
 
 const RISK_COLORS: Record<RiskRating, string> = {
@@ -29,10 +38,6 @@ function capacityPct(tvl: number, capacity: number) {
   return Math.min(100, (tvl / capacity) * 100);
 }
 
-function fmt(n: number, d = 2) {
-  return n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-}
-
 function fmtUsd(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
@@ -40,16 +45,19 @@ function fmtUsd(n: number) {
 }
 
 export default function VaultsPage() {
-  const [vaults, setVaults] = useState<VaultSummary[]>([]);
+  const t = useTranslations("vaults");
+  const [result, setResult] = useState<VaultFetchResult<VaultSummary[]> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [apyTooltip, setApyTooltip] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchVaults()
-      .then(v => { setVaults(v); setLoading(false); })
-      .catch(e => { setError(e.message); setLoading(false); });
+    fetchVaultsWithFallback()
+      .then(r => { setResult(r); setLoading(false); })
+      .catch(e => { setFetchError(e.message); setLoading(false); });
   }, []);
+
+  const vaults = result?.data ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg)", overflow: "hidden", fontFamily: "var(--font-sans)" }}>
@@ -60,24 +68,31 @@ export default function VaultsPage() {
         </div>
       </AppHeader>
 
+      {/* Global API health indicator (rate-limited / circuit-open states) */}
+      <ApiHealthBanner />
+
       <div style={{ flex: 1, overflowY: "auto" }}>
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "32px 24px 64px" }}>
 
           {/* Page header */}
           <div style={{ marginBottom: 32 }}>
             <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 26, fontWeight: 600, marginBottom: 6 }}>
-              Option-Writing Vaults
+              {t("pageTitle")}
             </h1>
             <p style={{ fontSize: 13, color: "var(--text-mid)", maxWidth: 620 }}>
-              Earn passive yield by providing liquidity to automated option-writing strategies.
-              Premiums are collected each epoch and compounded into your share price.
+              {t("pageDescription")}
               {process.env.NEXT_PUBLIC_VAULTS !== "live" && (
                 <span style={{ marginLeft: 8, fontSize: 11, color: "var(--atm)", fontStyle: "italic" }}>
-                  (mock data — contracts not yet deployed)
+                  ({t("mockBadge")})
                 </span>
               )}
             </p>
           </div>
+
+          {/* Degraded-mode staleness bar — shown when data comes from cache */}
+          {result && result.source !== "live" && (
+            <VaultStalenessBar source={result.source} stalenessNote={result.stalenessNote} />
+          )}
 
           {loading && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -87,9 +102,12 @@ export default function VaultsPage() {
             </div>
           )}
 
-          {error && (
-            <div style={{ padding: "12px 16px", border: "1px solid var(--put)", background: "var(--put-dim)", color: "var(--put)", fontSize: 12 }}>
-              Failed to load vaults: {error}
+          {fetchError && (
+            <div
+              role="alert"
+              style={{ padding: "12px 16px", border: "1px solid var(--put)", background: "var(--put-dim)", color: "var(--put)", fontSize: 12 }}
+            >
+              {t("errors.fetchFailed")}: {fetchError}
             </div>
           )}
 
@@ -108,19 +126,19 @@ export default function VaultsPage() {
                 lineHeight: 1.6,
               }}>
                 <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 8 }}>
-                  APY Methodology
+                  {t("apyMethodologyLabel")}
                 </div>
                 {apyTooltip}
                 <button onClick={() => setApyTooltip(null)} style={{
                   marginTop: 14, display: "block", background: "none", border: "1px solid var(--border-default)",
                   color: "var(--text-lo)", padding: "4px 12px", cursor: "pointer", fontSize: 11,
-                }}>Close</button>
+                }}>{t("apyMethodologyClose")}</button>
               </div>
             </div>
           )}
 
           {/* Vault cards */}
-          {!loading && !error && (
+          {!loading && !fetchError && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {vaults.map(vault => {
                 const cap = capacityPct(vault.tvl, vault.capacity);
@@ -167,7 +185,7 @@ export default function VaultsPage() {
                           APY (trailing 12M)
                           <button
                             onClick={() => setApyTooltip(vault.apyMethodology)}
-                            title="APY methodology"
+                            title={t("apyMethodologyLabel")}
                             style={{ marginLeft: 4, background: "none", border: "none", cursor: "pointer", color: "var(--text-lo)", fontSize: 9, padding: 0, textDecoration: "underline" }}
                           >ⓘ</button>
                         </div>
@@ -177,13 +195,13 @@ export default function VaultsPage() {
                       </div>
                       {/* TVL */}
                       <div>
-                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>TVL</div>
+                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>{t("stats.tvl")}</div>
                         <div className="num" style={{ fontSize: 18, fontWeight: 700, color: "var(--text-hi)" }}>{fmtUsd(vault.tvl)}</div>
                       </div>
                       {/* Capacity */}
                       <div>
                         <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>
-                          Capacity
+                          {t("stats.capacity")}
                         </div>
                         <div className="num" style={{ fontSize: 12, color: capColor }}>
                           {fmtUsd(vault.tvl)} / {fmtUsd(vault.capacity)}
@@ -194,7 +212,7 @@ export default function VaultsPage() {
                       </div>
                       {/* Current epoch strike */}
                       <div>
-                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>Current Strike</div>
+                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>{t("stats.currentStrike")}</div>
                         <div className="num" style={{ fontSize: 13, fontWeight: 600, color: "var(--atm)" }}>
                           {vault.currentStrike >= 1000
                             ? `$${vault.currentStrike.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -203,14 +221,14 @@ export default function VaultsPage() {
                       </div>
                       {/* Expiry */}
                       <div>
-                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>Expiry</div>
+                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>{t("stats.expiry")}</div>
                         <div className="num" style={{ fontSize: 13, color: "var(--text-mid)" }}>
                           {new Date(vault.currentExpiry).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </div>
                       </div>
                       {/* Underlying */}
                       <div>
-                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>Underlying</div>
+                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-lo)", marginBottom: 3 }}>{t("stats.underlying")}</div>
                         <div className="num" style={{ fontSize: 13, color: "var(--text-hi)" }}>{vault.underlying}/USD</div>
                       </div>
                     </div>
@@ -222,10 +240,10 @@ export default function VaultsPage() {
                         color: "var(--bg)", fontSize: 13, fontWeight: 700, textDecoration: "none",
                         textAlign: "center",
                       }}>
-                        View Vault →
+                        {t("viewVault")}
                       </Link>
                       {cap >= 100 && (
-                        <div style={{ fontSize: 10, color: "var(--put)", textAlign: "center" }}>Vault full</div>
+                        <div style={{ fontSize: 10, color: "var(--put)", textAlign: "center" }}>{t("vaultFull")}</div>
                       )}
                     </div>
                   </div>
@@ -241,9 +259,7 @@ export default function VaultsPage() {
             fontSize: 11, color: "var(--text-lo)", lineHeight: 1.6,
           }}>
             <strong style={{ color: "var(--text-mid)" }}>Risk Disclosure:</strong>{" "}
-            Option-writing vaults carry the risk of assignment at the strike price (for put vaults)
-            or capping upside gains (for call vaults). Past APY does not guarantee future returns.
-            Vault smart contracts are unaudited. Do not deposit more than you can afford to lose.
+            {t("riskDisclosure")}
           </div>
         </div>
       </div>

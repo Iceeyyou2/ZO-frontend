@@ -31,6 +31,104 @@ export const CONTRACT_ERRORS: SorobanErrorEntry[] = [
   { code: 15, key: 'CollateralLocked', message: 'Collateral is locked and cannot be withdrawn while positions are open.', suggestion: 'Close or settle all open positions before withdrawing collateral.', severity: 'error' },
 ];
 
+// ---------------------------------------------------------------------------
+// Vault contract error codes (Error(Contract, #1xx))
+// ---------------------------------------------------------------------------
+// These codes are emitted by the Zenith vault Soroban contracts. The numeric
+// range 100–119 is reserved for vault operations so they never overlap with
+// the options-contract range (1–15) or future protocol expansions (16–99).
+//
+// Backend API propagation: the BFF wraps Soroban simulation/submission
+// failures as { error: "Error(Contract, #1NN)" } in the JSON body; the
+// frontend resolves these via `resolveVaultError` / `resolveError` below.
+
+export const VAULT_CONTRACT_ERRORS: SorobanErrorEntry[] = [
+  {
+    code: 100,
+    key: "VaultCapacityExceeded",
+    message: "This vault has reached its maximum capacity.",
+    suggestion: "Try a smaller deposit amount, or check back after the next epoch when capacity may reopen.",
+    severity: "error",
+  },
+  {
+    code: 101,
+    key: "VaultEpochNotOpen",
+    message: "The vault is not accepting deposits right now.",
+    suggestion: "Deposits are only accepted during the deposit window. Wait for the next epoch's deposit phase to begin.",
+    severity: "warning",
+  },
+  {
+    code: 102,
+    key: "VaultLockupActive",
+    message: "Your shares are locked for the current epoch.",
+    suggestion: "Withdrawals are queued and processed at epoch settlement. Your request will be fulfilled at the end of this epoch.",
+    severity: "warning",
+  },
+  {
+    code: 103,
+    key: "VaultBelowMinimumDeposit",
+    message: "Deposit amount is below the vault minimum.",
+    suggestion: "Check the vault's minimum deposit requirement and enter a larger amount.",
+    severity: "error",
+  },
+  {
+    code: 104,
+    key: "VaultBelowMinimumPremium",
+    message: "The premium collected was below the minimum threshold.",
+    suggestion: "This epoch's premium did not meet the minimum. No shares were issued. Your funds were not moved — try again next epoch.",
+    severity: "error",
+  },
+  {
+    code: 105,
+    key: "VaultPaused",
+    message: "The vault is paused for maintenance or risk management.",
+    suggestion: "Vault operations are temporarily suspended. Check the Zenith status page and try again later.",
+    severity: "warning",
+  },
+  {
+    code: 106,
+    key: "VaultSharesMismatch",
+    message: "The share count in your request does not match the vault's on-chain record.",
+    suggestion: "Refresh the page to sync your position, then retry. If this persists, contact support with your transaction hash.",
+    severity: "error",
+  },
+  {
+    code: 107,
+    key: "VaultWithdrawalAlreadyQueued",
+    message: "You already have a withdrawal queued for this epoch.",
+    suggestion: "Your withdrawal is already in the queue for epoch settlement. No further action is needed.",
+    severity: "warning",
+  },
+  {
+    code: 108,
+    key: "VaultNAVStale",
+    message: "The vault NAV cannot be confirmed — the oracle price is too old.",
+    suggestion: "The vault's share price depends on a live oracle feed. Wait for the feed to refresh before depositing or withdrawing.",
+    severity: "error",
+  },
+  {
+    code: 109,
+    key: "VaultInsufficientShares",
+    message: "You do not have enough shares for this withdrawal.",
+    suggestion: "Check your current share balance and enter an amount no greater than your available shares.",
+    severity: "error",
+  },
+  {
+    code: 110,
+    key: "VaultSettlementInProgress",
+    message: "The vault is currently settling the epoch.",
+    suggestion: "Settlement is in progress. Deposits and withdrawals will reopen once the epoch closes. Check back shortly.",
+    severity: "warning",
+  },
+  {
+    code: 111,
+    key: "VaultUnauthorized",
+    message: "Your wallet is not authorized to interact with this vault.",
+    suggestion: "Only whitelisted addresses can interact with this vault. Reconnect your wallet or contact the vault operator.",
+    severity: "error",
+  },
+];
+
 // Soroban host errors (budget exceeded, storage, auth)
 export const HOST_ERRORS: SorobanErrorEntry[] = [
   { code: 0, key: 'HostBudgetExceeded', message: 'The transaction exceeded the Soroban compute budget.', suggestion: 'Reduce the number of operations in the batch, or split into smaller transactions.', severity: 'error' },
@@ -55,20 +153,25 @@ export const TX_RESULT_CODES: Record<string, SorobanErrorEntry> = {
 
 /**
  * Resolve a Soroban/Stellar error to a human-readable entry.
+ * Checks vault contract codes (100–111) first, then options contract codes
+ * (1–15), host errors, and transaction result codes.
+ *
  * Handles:
- *   - "Error(Contract, #N)" strings
+ *   - "Error(Contract, #N)" strings  — vault (100+) or options (1–15)
  *   - "Error(Host, #N)" strings
  *   - txBAD_SEQ, txFAILED, etc.
- *   - Raw error message strings (passed through)
+ *   - Raw error message strings (passed through as null)
  */
 export function resolveError(raw: string | number | undefined | null): SorobanErrorEntry | null {
   if (raw == null) return null;
   const s = String(raw).trim();
 
-  // Error(Contract, #N)
+  // Error(Contract, #N) — check vault range (100+) before options range (1–15)
   const contractMatch = s.match(/Error\s*\(\s*Contract\s*,\s*#(\d+)\s*\)/i);
   if (contractMatch) {
     const code = parseInt(contractMatch[1], 10);
+    const vaultEntry = VAULT_CONTRACT_ERRORS.find(e => e.code === code);
+    if (vaultEntry) return vaultEntry;
     return CONTRACT_ERRORS.find(e => e.code === code) ?? {
       code, key: `ContractError_${code}`,
       message: `Contract error #${code}.`,
@@ -94,4 +197,32 @@ export function resolveError(raw: string | number | undefined | null): SorobanEr
   if (txKey) return TX_RESULT_CODES[txKey];
 
   return null;
+}
+
+/**
+ * Convenience resolver scoped to vault contract errors only.
+ * Use this in vault deposit/withdraw error handlers to get vault-specific
+ * messages without accidentally matching an options-contract code that shares
+ * the same numeric value.
+ */
+export function resolveVaultError(raw: string | number | undefined | null): SorobanErrorEntry | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+
+  const contractMatch = s.match(/Error\s*\(\s*Contract\s*,\s*#(\d+)\s*\)/i);
+  if (contractMatch) {
+    const code = parseInt(contractMatch[1], 10);
+    return (
+      VAULT_CONTRACT_ERRORS.find(e => e.code === code) ??
+      CONTRACT_ERRORS.find(e => e.code === code) ?? {
+        code, key: `ContractError_${code}`,
+        message: `Vault contract error #${code}.`,
+        suggestion: 'Check the contract documentation for this error code.',
+        severity: 'error',
+      }
+    );
+  }
+
+  // Host and tx-result codes apply to vault transactions too
+  return resolveError(raw);
 }

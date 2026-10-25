@@ -140,5 +140,102 @@
   "notFound": {
     "title": "Página no encontrada",
     "back": "Volver a la terminal"
+  },
+  "vaults": {
+    "pageTitle": "Bóvedas de emisión de opciones",
+    "pageDescription": "Obtén rendimiento pasivo proporcionando liquidez a estrategias automatizadas de emisión de opciones. Las primas se recogen cada época y se reinvierten en el precio de tus acciones.",
+    "mockBadge": "datos de prueba — contratos aún no desplegados",
+    "viewVault": "Ver bóveda →",
+    "vaultFull": "Bóveda llena",
+    "riskDisclosure": "Divulgación de riesgos: las bóvedas de emisión de opciones conllevan el riesgo de asignación al precio de ejercicio (para bóvedas de put) o de limitar las ganancias (para bóvedas de call). El APY pasado no garantiza resultados futuros. Los contratos inteligentes de bóveda no han sido auditados. No deposites más de lo que puedes permitirte perder.",
+    "loading": "Cargando bóvedas…",
+    "notFound": "Bóveda no encontrada.",
+    "backToVaults": "Bóvedas",
+    "connectWallet": "Conecta tu billetera para depositar o retirar.",
+    "riskDisclosureShort": "Los contratos de bóveda no han sido auditados. Los depósitos pueden estar expuestos a riesgos de contrato inteligente y de asignación. Los resultados pasados no garantizan resultados futuros.",
+    "apyMethodologyLabel": "Metodología APY",
+    "apyMethodologyClose": "Cerrar",
+    "stats": {
+      "trailingApy": "APY histórico",
+      "tvl": "TVL",
+      "capacity": "Capacidad",
+      "currentStrike": "Strike actual",
+      "expiry": "Vencimiento",
+      "underlying": "Subyacente",
+      "sharePrice": "Precio por acción",
+      "epoch": "Época",
+      "mgmtFee": "Com. gestión",
+      "perfFee": "Com. rendimiento",
+      "noMgmtFee": "Ninguna"
+    },
+    "phase": {
+      "deposit": "Ventana de depósito",
+      "active": "Época activa",
+      "settlement": "Liquidación",
+      "depositNote": "Depósitos abiertos · Retiros procesados al inicio de la época",
+      "activeNote": "Época en curso · Retiros en cola hasta la liquidación",
+      "settlementNote": "Liquidando posición · Calculando P&L final"
+    },
+    "history": {
+      "title": "Épocas históricas",
+      "epochCol": "Época",
+      "activeCol": "Activo",
+      "settlementCol": "Liquidación",
+      "strikeCol": "Strike",
+      "premiumCol": "Prima/acción",
+      "outcomeCol": "Resultado",
+      "returnCol": "Retorno",
+      "expired": "Expirada",
+      "exercised": "Ejercida"
+    },
+    "howItWorks": "Cómo funciona esta bóveda",
+    "epochTimeline": "Línea de tiempo de época",
+    "yourPosition": "Tu posición",
+    "positionShares": "Acciones",
+    "positionTotalValue": "Valor total",
+    "positionAccruedPremium": "Prima acumulada",
+    "positionQueuedWithdrawal": "Retiro en cola",
+    "positionQueuedUnit": "{shares} acciones",
+    "feeDisclosure": "Divulgación de comisiones",
+    "feeManagement": "Gestión: {pct}% anual sobre TVL",
+    "feeNoManagement": "Sin comisión de gestión",
+    "feePerformance": "Rendimiento: {pct}% sobre retornos positivos netos por época",
+    "deposit": {
+      "tab": "Depositar",
+      "description": "Deposita USDC en la bóveda. Las acciones se emiten al NAV actual de {price}/acción.",
+      "amountLabel": "Monto (USDC)",
+      "sharesEstimate": "≈ {shares} acciones",
+      "queuedNotice": "Los depósitos durante épocas activas se ponen en cola para el inicio de la siguiente época.",
+      "button": "Depositar",
+      "buttonPending": "Confirmando…"
+    },
+    "withdraw": {
+      "tab": "Retirar",
+      "description": "Las solicitudes de retiro se ponen en cola y se procesan al final de la época actual. Las acciones se canjean al NAV final después de comisiones.",
+      "sharesLabel": "Acciones a retirar",
+      "usdcEstimate": "≈ {usdc} USDC al NAV actual",
+      "note": "Los retiros en cola se procesan en la liquidación de época. Recibirás USDC al precio final por acción después de comisiones.",
+      "button": "Poner retiro en cola",
+      "buttonPending": "Poniendo en cola…"
+    },
+    "degraded": {
+      "snapshotBanner": "Mostrando datos en caché de hace {age} — API en vivo no disponible.",
+      "partialBanner": "Se recibieron datos parciales — no se pudo confirmar el precio por acción.",
+      "actionsDisabled": "Los depósitos y retiros están deshabilitados hasta confirmar datos en vivo.",
+      "snapshotLabel": "En caché",
+      "partialLabel": "Datos parciales"
+    },
+    "errors": {
+      "fetchFailed": "Error al cargar bóvedas",
+      "depositFailed": "Depósito fallido",
+      "withdrawFailed": "Retiro fallido",
+      "navUnconfirmed": "No se puede depositar ni retirar: no se pudo confirmar el NAV actual. Mostrando datos en caché.",
+      "dismissError": "Descartar"
+    },
+    "tx": {
+      "depositSuccess": "Depósito confirmado. TX: {txId}",
+      "withdrawSuccess": "Retiro en cola para el final de la época. TX: {txId}",
+      "withdrawImmediate": "Retiro confirmado. TX: {txId}"
+    }
   }
 }

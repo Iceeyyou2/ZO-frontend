@@ -140,5 +140,102 @@
   "notFound": {
     "title": "Page not found",
     "back": "Back to the terminal"
+  },
+  "vaults": {
+    "pageTitle": "Option-Writing Vaults",
+    "pageDescription": "Earn passive yield by providing liquidity to automated option-writing strategies. Premiums are collected each epoch and compounded into your share price.",
+    "mockBadge": "mock data — contracts not yet deployed",
+    "viewVault": "View Vault →",
+    "vaultFull": "Vault full",
+    "riskDisclosure": "Risk Disclosure: Option-writing vaults carry the risk of assignment at the strike price (for put vaults) or capping upside gains (for call vaults). Past APY does not guarantee future returns. Vault smart contracts are unaudited. Do not deposit more than you can afford to lose.",
+    "loading": "Loading vaults…",
+    "notFound": "Vault not found.",
+    "backToVaults": "Vaults",
+    "connectWallet": "Connect your wallet to deposit or withdraw.",
+    "riskDisclosureShort": "Vault contracts are unaudited. Deposits may be exposed to smart contract risk and assignment risk. Past returns do not guarantee future results.",
+    "apyMethodologyLabel": "APY Methodology",
+    "apyMethodologyClose": "Close",
+    "stats": {
+      "trailingApy": "trailing APY",
+      "tvl": "TVL",
+      "capacity": "Capacity",
+      "currentStrike": "Current Strike",
+      "expiry": "Expiry",
+      "underlying": "Underlying",
+      "sharePrice": "Share Price",
+      "epoch": "Epoch",
+      "mgmtFee": "Mgmt Fee",
+      "perfFee": "Perf Fee",
+      "noMgmtFee": "None"
+    },
+    "phase": {
+      "deposit": "Deposit Window",
+      "active": "Epoch Active",
+      "settlement": "Settlement",
+      "depositNote": "Deposits open · Withdrawals processed at epoch start",
+      "activeNote": "Epoch in progress · Withdrawals queued until settlement",
+      "settlementNote": "Settling position · Final P&L being calculated"
+    },
+    "history": {
+      "title": "Historical Epochs",
+      "epochCol": "Epoch",
+      "activeCol": "Active",
+      "settlementCol": "Settlement",
+      "strikeCol": "Strike",
+      "premiumCol": "Premium/Share",
+      "outcomeCol": "Outcome",
+      "returnCol": "Return",
+      "expired": "Expired",
+      "exercised": "Exercised"
+    },
+    "howItWorks": "How This Vault Works",
+    "epochTimeline": "Epoch Timeline",
+    "yourPosition": "Your Position",
+    "positionShares": "Shares",
+    "positionTotalValue": "Total Value",
+    "positionAccruedPremium": "Accrued Premium",
+    "positionQueuedWithdrawal": "Queued Withdrawal",
+    "positionQueuedUnit": "{shares} shares",
+    "feeDisclosure": "Fee Disclosure",
+    "feeManagement": "Management: {pct}% annually on TVL",
+    "feeNoManagement": "No management fee",
+    "feePerformance": "Performance: {pct}% on net positive epoch returns",
+    "deposit": {
+      "tab": "Deposit",
+      "description": "Deposit USDC into the vault. Shares are issued at the current NAV of {price}/share.",
+      "amountLabel": "Amount (USDC)",
+      "sharesEstimate": "≈ {shares} shares",
+      "queuedNotice": "Deposits during active epochs are queued for the next epoch start.",
+      "button": "Deposit",
+      "buttonPending": "Confirming…"
+    },
+    "withdraw": {
+      "tab": "Withdraw",
+      "description": "Withdrawal requests are queued and processed at the end of the current epoch. Shares are redeemed at the final NAV after settlement.",
+      "sharesLabel": "Shares to Withdraw",
+      "usdcEstimate": "≈ {usdc} USDC at current NAV",
+      "note": "Queued withdrawals are processed at epoch settlement. You will receive USDC at the final share price after fees.",
+      "button": "Queue Withdrawal",
+      "buttonPending": "Queuing…"
+    },
+    "degraded": {
+      "snapshotBanner": "Showing cached data from {age} — live API unreachable.",
+      "partialBanner": "Partial data received — share price could not be confirmed.",
+      "actionsDisabled": "Deposits and withdrawals are disabled until live data can be confirmed.",
+      "snapshotLabel": "Cached",
+      "partialLabel": "Partial data"
+    },
+    "errors": {
+      "fetchFailed": "Failed to load vaults",
+      "depositFailed": "Deposit failed",
+      "withdrawFailed": "Withdrawal failed",
+      "navUnconfirmed": "Cannot deposit or withdraw: the current NAV could not be confirmed. Showing cached data.",
+      "dismissError": "Dismiss"
+    },
+    "tx": {
+      "depositSuccess": "Deposit confirmed. TX: {txId}",
+      "withdrawSuccess": "Withdrawal queued for epoch end. TX: {txId}",
+      "withdrawImmediate": "Withdrawal confirmed. TX: {txId}"
+    }
   }
 }
