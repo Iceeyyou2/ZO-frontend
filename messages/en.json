@@ -140,5 +140,8 @@
   "notFound": {
     "title": "Page not found",
     "back": "Back to the terminal"
+  },
+  "chain": {
+    "noQuote": "—"
   }
 }
