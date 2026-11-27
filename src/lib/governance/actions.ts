@@ -281,6 +281,257 @@ export const GOVERNABLE_CONTRACTS: GovernableContract[] = [
         dangerous: true,
         dangerNote: "Pausing the vault locks deposits and withdrawals until it is unpaused.",
       },
+      // ── Issue #241: cash buffer and JIT unwind governance controls ────────
+      {
+        name: "set_cash_buffer_bps",
+        label: "Target cash buffer",
+        summary: "Sets the target idle-cash buffer as a fraction of TVL (basis points).",
+        params: [
+          {
+            name: "buffer_bps",
+            label: "Target buffer",
+            type: "u32",
+            placeholder: "500",
+            help: "Basis points of TVL to keep as idle cash. 500 = 5%.",
+            readMethod: "cash_buffer_bps",
+            unit: "%",
+            decimals: 2,
+            display: "bps",
+            suggested: "500",
+          },
+        ],
+      },
+      {
+        name: "set_min_buffer_bps",
+        label: "Minimum cash buffer",
+        summary: "Hard floor below which the vault halts new deposits and raises an alert.",
+        params: [
+          {
+            name: "min_buffer_bps",
+            label: "Minimum buffer",
+            type: "u32",
+            placeholder: "200",
+            help: "Basis points of TVL. 200 = 2%.",
+            readMethod: "min_buffer_bps",
+            unit: "%",
+            decimals: 2,
+            display: "bps",
+            suggested: "200",
+          },
+        ],
+        dangerous: true,
+        dangerNote: "Lowering the minimum buffer increases the risk of the vault being unable to service redemptions without a fire-sale unwind.",
+      },
+      {
+        name: "set_unwind_priority",
+        label: "JIT unwind priority",
+        summary: "Sets the criterion used to rank positions for the JIT unwind plan.",
+        params: [
+          {
+            name: "priority",
+            label: "Unwind priority",
+            type: "symbol",
+            placeholder: "least_loss",
+            help: "One of: least_loss, nearest_expiry, largest_notional.",
+            readMethod: "unwind_priority",
+            display: "symbol",
+            suggested: "least_loss",
+          },
+        ],
+      },
+      {
+        name: "set_max_unwind_slippage_bps",
+        label: "Max unwind slippage",
+        summary: "Maximum slippage the JIT engine will accept before escalating to the operator.",
+        params: [
+          {
+            name: "slippage_bps",
+            label: "Max slippage",
+            type: "u32",
+            placeholder: "200",
+            help: "Basis points. 200 = 2%.",
+            readMethod: "max_unwind_slippage_bps",
+            unit: "%",
+            decimals: 2,
+            display: "bps",
+            suggested: "200",
+          },
+        ],
+      },
+      // ── Issue #243: audit-logged parameter changes ────────────────────────
+      {
+        name: "set_epoch_advance",
+        label: "Force epoch advance",
+        summary: "Rolls the vault into the next epoch immediately, bypassing the scheduled boundary.",
+        params: [
+          {
+            name: "justification",
+            label: "Justification",
+            type: "string",
+            help: "Required: explain why a forced advance is necessary (e.g. oracle failure, settlement delay).",
+            display: "text",
+            multiline: true,
+            placeholder: "Forced due to …",
+          },
+        ],
+        dangerous: true,
+        dangerNote: "Forcing an epoch advance can strand in-flight deposits and withdrawals. This action is immutably recorded in the vault audit log.",
+      },
+      {
+        name: "set_strategy",
+        label: "Change strategy",
+        summary: "Updates the vault's option-writing strategy (covered_call, cash_secured_put, iron_condor, wheel).",
+        params: [
+          {
+            name: "strategy",
+            label: "New strategy",
+            type: "symbol",
+            placeholder: "covered_call",
+            readMethod: "strategy",
+            display: "symbol",
+          },
+          {
+            name: "justification",
+            label: "Justification",
+            type: "string",
+            help: "Required: document the risk-committee rationale.",
+            display: "text",
+            multiline: true,
+            placeholder: "Changing strategy because …",
+          },
+        ],
+        dangerous: true,
+        dangerNote: "Strategy changes affect depositor risk profile. The change is immutably recorded in the vault audit log.",
+      },
+      {
+        name: "withdraw_treasury",
+        label: "Treasury withdrawal",
+        summary: "Pulls accrued performance fees or treasury funds to the fee recipient address.",
+        params: [
+          {
+            name: "amount",
+            label: "Amount",
+            type: "i128",
+            placeholder: "10000000000",
+            help: "Amount in stroops (1 XLM = 10,000,000 stroops).",
+            display: "xlm",
+            unit: "XLM",
+            decimals: 7,
+          },
+          {
+            name: "recipient",
+            label: "Recipient",
+            type: "address",
+            placeholder: "G…",
+            help: "Stellar address to receive the funds.",
+            display: "address",
+            dangerous: true,
+          },
+          {
+            name: "justification",
+            label: "Justification",
+            type: "string",
+            help: "Required: describe the purpose of this withdrawal.",
+            display: "text",
+            multiline: true,
+            placeholder: "Treasury withdrawal for …",
+          },
+        ],
+        dangerous: true,
+        dangerNote: "Treasury withdrawals move depositor-adjacent funds. This action is immutably recorded in the vault audit log.",
+      },
+      // ── Issue #242: share-weighted depositor governance controls ──────────
+      {
+        name: "set_quorum_bps",
+        label: "Governance quorum",
+        summary: "Sets the minimum depositor participation required for a proposal to pass.",
+        params: [
+          {
+            name: "quorum_bps",
+            label: "Quorum",
+            type: "u32",
+            placeholder: "1000",
+            help: "Basis points of total shares that must participate. 1000 = 10%.",
+            readMethod: "governance_quorum_bps",
+            unit: "%",
+            decimals: 2,
+            display: "bps",
+            suggested: "1000",
+          },
+        ],
+      },
+      {
+        name: "set_voting_period",
+        label: "Voting period",
+        summary: "Sets the duration of the depositor voting window in seconds.",
+        params: [
+          {
+            name: "period_seconds",
+            label: "Voting period",
+            type: "u32",
+            placeholder: "259200",
+            help: "Seconds. 259200 = 3 days.",
+            readMethod: "governance_voting_period",
+            unit: "s",
+            display: "seconds",
+            suggested: "259200",
+          },
+        ],
+      },
+      {
+        name: "set_governance_timelock",
+        label: "Governance timelock",
+        summary: "Sets the delay between a successful depositor vote and on-chain execution.",
+        params: [
+          {
+            name: "delay_seconds",
+            label: "Timelock delay",
+            type: "u32",
+            placeholder: "172800",
+            help: "Seconds. 172800 = 2 days.",
+            readMethod: "governance_timelock_delay",
+            unit: "s",
+            display: "seconds",
+            suggested: "172800",
+          },
+        ],
+      },
+      {
+        name: "set_proposal_threshold",
+        label: "Proposal threshold",
+        summary: "Minimum share balance a depositor must hold to create a governance proposal.",
+        params: [
+          {
+            name: "threshold_shares",
+            label: "Threshold (shares)",
+            type: "u128",
+            placeholder: "1000",
+            help: "Raw share units. Prevents spam proposals from dust holders.",
+            readMethod: "governance_proposal_threshold",
+            display: "plain",
+            suggested: "1000",
+          },
+        ],
+      },
+      {
+        name: "set_strike_band_bps",
+        label: "Strike selection band",
+        summary: "Sets the maximum OTM distance for strike selection as basis points of spot.",
+        params: [
+          {
+            name: "band_bps",
+            label: "Strike band",
+            type: "u32",
+            placeholder: "1000",
+            help: "Basis points. 1000 = 10% OTM maximum.",
+            readMethod: "strike_band_bps",
+            unit: "bps",
+            decimals: 2,
+            display: "bps",
+            suggested: "1000",
+          },
+        ],
+      },
     ],
   },
   {
@@ -834,122 +1085,4 @@ export function describeAction(action: ProposalAction): string {
 /** Why an action is flagged dangerous, or null when it is safe. */
 export function dangerNote(action: ProposalAction): string | null {
   const contract = findContract(action.contractKey);
-  const fn = contract?.functions.find((f) => f.name === action.functionName);
-  if (!fn) return null;
-  if (fn.dangerous) return fn.dangerNote ?? "This action can affect all protocol funds.";
-  const dangerousParam = fn.params.find((p) => p.dangerous);
-  return dangerousParam ? `“${dangerousParam.label}” cannot be changed back safely.` : null;
-}
-
-export function isDangerous(action: ProposalAction): boolean {
-  return dangerNote(action) !== null;
-}
-
-// ---------------------------------------------------------------------------
-// Form generator
-// ---------------------------------------------------------------------------
-
-/** A single rendered form field, produced from an `ActionParamSpec`. */
-export interface FormField {
-  /** DOM id — stable across renders so labels stay associated. */
-  id: string;
-  name: string;
-  label: string;
-  type: ActionParamType;
-  value: string;
-  placeholder: string;
-  help?: string;
-  multiline: boolean;
-  /** Render as a select (enumerations) rather than a text input. */
-  options?: { value: string; label: string }[];
-  /** Controlled-component callback target. */
-  inputMode?: "text" | "numeric";
-}
-
-const BOOL_OPTIONS = [
-  { value: "false", label: "false" },
-  { value: "true", label: "true" },
-];
-
-/**
- * Generate the form model for a governable function.  This is the
- * schema-driven form generator the wizard renders — no per-parameter JSX.
- */
-export function buildFormFields(
-  action: Pick<ProposalAction, "contractKey" | "functionName" | "values">,
-  idPrefix = "action"
-): FormField[] {
-  const fn = findFunction(action.contractKey, action.functionName);
-  if (!fn) return [];
-
-  return fn.params.map((param) => {
-    const field: FormField = {
-      id: `${idPrefix}-${param.name}`,
-      name: param.name,
-      label: param.label,
-      type: param.type,
-      value: action.values[param.name] ?? param.suggested ?? defaultForParam(param),
-      placeholder: param.placeholder ?? "",
-      help: param.help,
-      multiline: param.multiline === true || param.type === "vec<address>",
-    };
-
-    if (param.type === "bool") field.options = BOOL_OPTIONS;
-    if (param.type === "u32" || param.type === "u64" || param.type === "u128" || param.type === "i128") {
-      field.inputMode = "numeric";
-    }
-
-    return field;
-  });
-}
-
-/**
- * Fallback value when a param has neither a stored value nor a suggestion.
- *
- * A bool must resolve to "false" rather than "": a <select> of true/false has
- * no empty option, so an empty value would render as "false" while still
- * encoding as a missing required argument.
- */
-function defaultForParam(param: ActionParamSpec): string {
-  return param.type === "bool" ? "false" : "";
-}
-
-/** Pre-fill a blank action with the catalog's suggested values. */
-export function defaultValuesFor(
-  contractKey: string,
-  functionName: string
-): Record<string, string> {
-  const fn = findFunction(contractKey, functionName);
-  if (!fn) return {};
-  const values: Record<string, string> = {};
-  for (const param of fn.params) {
-    const value = param.suggested !== undefined ? param.suggested : defaultForParam(param);
-    if (value !== "") values[param.name] = value;
-  }
-  return values;
-}
-
-export function describeParamError(error: ParamError): string {
-  switch (error) {
-    case "required":
-      return "This field is required.";
-    case "not_a_number":
-      return "Enter a whole number.";
-    case "out_of_range":
-      return "Value is outside the allowed range for this type.";
-    case "not_integer":
-      return "Whole numbers only.";
-    case "invalid_address":
-      return "Enter a valid Stellar account (G…) or contract (C…) address.";
-    case "invalid_contract":
-      return "Enter a valid contract (C…) address.";
-    case "invalid_symbol":
-      return "Symbols cannot contain spaces.";
-    case "too_long":
-      return "Value is too long.";
-    case "invalid_bool":
-      return "Choose true or false.";
-    case "empty_list":
-      return "Provide at least one value.";
-  }
-}
+  const fn = contract?.functions.find((f) => f.name === action

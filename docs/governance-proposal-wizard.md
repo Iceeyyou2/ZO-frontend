@@ -104,6 +104,99 @@ import it. The route reads the signer from `ProposalSignerProvider`
 
 Wrap the app (or this route) in that provider once the wallet store is restored.
 
+## Timelock & multisig approval workflow (Issue #224)
+
+Vault parameter and upgrade changes are **not** applied by the wizard directly. The
+wizard only *submits* a proposal; the on-chain governance module enforces the rest.
+
+### Lifecycle
+
+```
+propose → approve (× threshold) → queue → delay elapses → execute
+                 ↘ cancel (any time before execute)
+                 ↘ expire (stale, never queued/executed in time)
+```
+
+| Stage | Who | Effect |
+| --- | --- | --- |
+| `propose` | any signer | Records a typed action payload; emits `ProposalCreated` |
+| `approve` | each signer | Adds an approval; emits `ProposalApproved`. Revocable before `queue` |
+| `queue` | any signer, once approvals ≥ threshold | Stamps `eta = now + delay`; emits `ProposalQueued` |
+| `execute` | anyone, after `eta` and before expiry | Applies the action; emits `ProposalExecuted` |
+| `cancel` | proposer or signer | Emits `ProposalCancelled` |
+| expiry | — | Proposals past their deadline emit `ProposalExpired` and can no longer execute |
+
+### Governance-only setters
+
+The following privileged setters are reachable **only** through an executed proposal —
+there is no separate admin entry point:
+
+- fee bps and fee recipient
+- capacity limits
+- strategy weights / strategy parameters
+- oracle configuration
+- contract upgrade authorization
+
+The threshold and delay parameters themselves are also changed only through the same
+workflow, so they cannot be lowered without a timelock.
+
+### Edge cases
+
+- Duplicate proposals for the same parameter are rejected.
+- Approvals can be revoked before `queue`; a signer-set change does not retroactively
+  invalidate already-queued proposals.
+- Execution before `eta`, after expiry, or a replay of an executed proposal reverts.
+- Replay protection is keyed by proposal id and survives upgrades.
+
+### Backend & operator console
+
+The vault registry/API exposes pending and executed proposals (with `eta` and approval
+count) so the operator console can display them **read-only**. Editing parameters directly
+from the console is out of scope for this issue.
+
+### Events
+
+`ProposalCreated`, `ProposalApproved`, `ProposalQueued`, `ProposalExecuted`,
+`ProposalCancelled`, `ProposalExpired` — all consumable by the indexer.
+## Voting weight reads TWAB (Issue #272)
+
+Governance voting weight is read from the vault share token's time-weighted average
+balance (TWAB) accumulator rather than an instantaneous share balance, closing the
+last-block deposit/withdraw gaming vector. The wizard itself does not compute weight —
+it only surfaces the proposer's threshold progress — but the `thresholdState` passed into
+`ProposalWizard` is expected to be derived from TWAB-weighted stake.
+
+### TWAB contract surface
+
+The SEP-41 share token maintains a checkpointed cumulative-balance accumulator with
+binary-searchable checkpoints and exposes:
+
+- `balance_at(account, timestamp)` — the account's share balance at a ledger timestamp.
+- `twab(account, start, end)` — the time-weighted average balance over `[start, end)`.
+
+Checkpoints are written **only** on share mint, burn, and transfer, inside the same
+authorization scope as the share mutation so a new entry point cannot bypass the
+accumulator. Timestamps are ledger close times (never wall-clock) and are monotonic.
+
+### Rounding and edge cases
+
+- `twab` returns `0` for a zero-length window (`start >= end`) and for windows that
+  precede the account's first checkpoint — no division by zero.
+- A single checkpoint yields the balance held at that checkpoint across the window.
+- First-deposit edge cases: the accumulator seeds at the deposit timestamp, so the
+  pre-deposit interval contributes zero weight.
+- Integer division truncates toward zero; TWAB is only ever used to *weight* value, never
+  to mint it.
+
+### Checkpoint retention / compaction policy
+
+Checkpoint history is bounded to avoid unbounded Soroban storage rent and entry-size
+growth. The retention window is coordinated with the storage-TTL work: checkpoints older
+than the retention horizon are compacted into a single baseline checkpoint, and the
+binary search operates over the retained, sorted checkpoint array with no unbounded
+loops. Overflow bounds on the cumulative accumulator are documented alongside the
+contract.
+
 ## Tests
 
 ```

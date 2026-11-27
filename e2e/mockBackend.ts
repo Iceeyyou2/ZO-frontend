@@ -11,11 +11,24 @@ export interface MockOptions {
   /** Delay every response (ms) — for observing loading states. */
   delayMs?: number;
   positions?: unknown[];
+  /** Vault fixtures — override the defaults for capacity/waitlist/epoch states. */
+  vaults?: unknown[];
+  vaultDetail?: Record<string, unknown>;
+  epochLedger?: unknown[];
+  /** Force a specific vault route to fail with the given status/body. */
+  vaultErrors?: Record<string, { status: number; body: unknown }>;
+  /** Vault-written supply summary keyed by (underlying, expiry, strike). */
+  vaultSupply?: unknown;
+  /** Make the vault supply endpoint fail with 500 (source unavailable). */
+  vaultSupplyUnavailable?: boolean;
 }
 
 export interface MockBackend {
   requests: { mode: Mode; method: string; path: string; auth: string | null }[];
   opened: unknown[];
+  deposits: unknown[];
+  withdrawals: unknown[];
+  redemptions: unknown[];
 }
 
 const SPOT: Record<string, number> = { XLM: 0.1182, BTC: 67420.5, ETH: 3512.8, SOL: 182.45 };
@@ -44,16 +57,69 @@ function chain(sym: string, days: number) {
   });
 }
 
+/**
+ * Deterministic vault supply summary for the mocked chain: a handful of strikes
+ * near the money carry vault-written OI so the annotation/filter/overlay have
+ * something real to render. Shape mirrors the aggregated supply endpoint.
+ */
+function vaultSupply(sym: string, days: number) {
+  const S = SPOT[sym] ?? 1;
+  const rows = [
+    { offset: -2, option_type: "call", vault_oi: 120, total_oi: 400 },
+    { offset: 0, option_type: "call", vault_oi: 85, total_oi: 250 },
+    { offset: 1, option_type: "put", vault_oi: 60, total_oi: 300 },
+    { offset: 3, option_type: "put", vault_oi: 40, total_oi: 160 },
+  ];
+  return {
+    underlying: sym,
+    expiry_days: days,
+    contracts: rows.map(r => {
+      const strike = Math.round(S * (1 + r.offset * 0.04) * 10000) / 10000;
+      return {
+        strike,
+        expiry_days: days,
+        option_type: r.option_type,
+        vault_oi: r.vault_oi,
+        total_oi: r.total_oi,
+        vault_share: r.total_oi > 0 ? r.vault_oi / r.total_oi : 0,
+      };
+    }),
+  };
+}
+
 export const samplePosition = {
   id: "pos-1", wallet_address: "GTEST", underlying: "XLM", strike: 0.1229, expiry_days: 30, option_type: "call",
   position_type: "long", contracts: 2, entry_premium: 0.0092, entry_spot: 0.1182, collateral: 0, status: "open",
   close_premium: null, close_spot: null, realized_pnl: null, opened_at: "2026-09-01T10:00:00Z", closed_at: null, strategy_id: null,
 };
 
+/** Default vault list fixture — derived from the frozen REST contract. */
+export const sampleVaults = [
+  { id: "vault-xlm-1", name: "XLM Covered Call", asset: "XLM", status: "open", capacity: 100000, total_deposits: 42000, apy: 0.124, share_price: 1.042, epoch: 12, epoch_ends_at: "2026-10-01T00:00:00Z" },
+  { id: "vault-btc-1", name: "BTC Put Seller", asset: "BTC", status: "waitlist", capacity: 50000, total_deposits: 50000, apy: 0.081, share_price: 1.011, epoch: 4, epoch_ends_at: "2026-10-02T00:00:00Z" },
+  { id: "vault-eth-1", name: "ETH Straddle", asset: "ETH", status: "closed", capacity: 80000, total_deposits: 12000, apy: 0.153, share_price: 0.998, epoch: 7, epoch_ends_at: "2026-09-28T00:00:00Z" },
+];
+
+export const sampleVaultDetail = {
+  ...sampleVaults[0],
+  description: "Sells covered calls on XLM to earn premium.",
+  min_deposit: 10,
+  lockup_days: 7,
+  share_price: 1.042,
+  pending_withdrawals: 0,
+};
+
+export const sampleEpochLedger = [
+  { epoch: 12, started_at: "2026-09-24T00:00:00Z", ended_at: null, deposits: 42000, withdrawals: 0, share_price: 1.042, status: "active" },
+  { epoch: 11, started_at: "2026-09-17T00:00:00Z", ended_at: "2026-09-24T00:00:00Z", deposits: 38000, withdrawals: 2000, share_price: 1.031, status: "settled" },
+];
+
 /** Installs a fake Zenith backend for all three modes and (optionally) a signed-in session. */
 export async function mockBackend(page: Page, opts: MockOptions = {}): Promise<MockBackend> {
-  const state: MockBackend = { requests: [], opened: [] };
+  const state: MockBackend = { requests: [], opened: [], deposits: [], withdrawals: [], redemptions: [] };
   const positions: unknown[] = [...(opts.positions ?? [])];
+  const vaults: unknown[] = [...(opts.vaults ?? sampleVaults)];
+  const epochLedger: unknown[] = [...(opts.epochLedger ?? sampleEpochLedger)];
 
   for (const mode of opts.signedIn ?? []) {
     await page.addInitScript(([m]) => {
@@ -88,6 +154,11 @@ export async function mockBackend(page: Page, opts: MockOptions = {}): Promise<M
       if (p === "/chain") return json(chain(url.searchParams.get("underlying") ?? "XLM", Number(url.searchParams.get("expiry_days") ?? 30)));
       if (p.startsWith("/expiries/")) return json({ underlying: "XLM", spot: 0.1182, vol: 0.82, expiries: [7, 14, 30, 60, 90, 180].map(d => ({ days_to_expiry: d, label: `${d}D`, timestamp: 0 })) });
       if (p === "/spot") return json({ prices: SPOT, vols: {} });
+      if (p === "/vaults/supply") {
+        if (opts.vaultSupplyUnavailable) return json({ error: "vault supply unavailable" }, 503);
+        if (opts.vaultSupply !== undefined) return json(opts.vaultSupply);
+        return json(vaultSupply(url.searchParams.get("underlying") ?? "XLM", Number(url.searchParams.get("expiry_days") ?? 30)));
+      }
 
       // Everything below is authed — tokens are per mode.
       if (auth !== `Bearer ${mode}-token`) return json({ error: "unauthorized" }, 401);
@@ -105,6 +176,35 @@ export async function mockBackend(page: Page, opts: MockOptions = {}): Promise<M
       if (p === "/watchlist") return json([]);
       if (p === "/alerts") return json([]);
       if (p === "/history") return json({ trades: [], stats: { trade_count: 0, win_count: 0, loss_count: 0, total_realized_pnl: 0 } });
+
+      // Vault routes — derived from the frozen REST contract.
+      const vaultErr = opts.vaultErrors?.[p];
+      if (vaultErr) return json(vaultErr.body, vaultErr.status);
+      if (p === "/vaults" && req.method() === "GET") return json(vaults);
+      if (p === "/vaults/deposit" && req.method() === "POST") {
+        const body = req.postDataJSON();
+        state.deposits.push(body);
+        const shares = Number(body.amount) / 1.042;
+        return json({ id: `dep-${state.deposits.length}`, vault_id: body.vault_id, amount: body.amount, shares, share_price: 1.042, status: "confirmed" }, 201);
+      }
+      if (p === "/vaults/withdraw" && req.method() === "POST") {
+        const body = req.postDataJSON();
+        state.withdrawals.push(body);
+        return json({ id: `wd-${state.withdrawals.length}`, vault_id: body.vault_id, shares: body.shares, status: "queued", epoch: 12, queued_at: "2026-09-25T00:00:00Z" }, 202);
+      }
+      if (p === "/vaults/redeem" && req.method() === "POST") {
+        const body = req.postDataJSON();
+        state.redemptions.push(body);
+        return json({ id: `rd-${state.redemptions.length}`, vault_id: body.vault_id, shares: body.shares, amount: Number(body.shares) * 1.042, status: "redeemed" }, 200);
+      }
+      if (p === "/vaults/epochs" && req.method() === "GET") return json(epochLedger);
+      const detailMatch = p.match(/^\/vaults\/([^/]+)$/);
+      if (detailMatch && req.method() === "GET") {
+        const id = decodeURIComponent(detailMatch[1]);
+        const found = (vaults as { id: string }[]).find(v => v.id === id);
+        if (!found) return json({ error: "vault not found" }, 404);
+        return json(opts.vaultDetail ?? { ...sampleVaultDetail, ...found });
+      }
       return json({ error: `unmocked ${p}` }, 404);
     });
   }

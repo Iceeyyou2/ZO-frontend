@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "./Logo";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useBackendData } from "../lib/context/BackendDataContext";
 import { fmtN } from "../lib/pricing";
 
 const TABS = [
   { label: "Chain", href: "/options" },
   { label: "Portfolio", href: "/portfolio" },
+  { label: "Compete", href: "/compete" },
   { label: "History", href: "/history" },
   { label: "Contracts", href: "/contracts" },
 ];
@@ -56,6 +58,8 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
         )}
       </Link>
       <div style={{ width: 1, height: 20, background: "var(--border-default)" }} />
+
+      <ThemeSwitcher />
 
       {children}
     </header>
